@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import sys
 import time as _time
 from functools import partial
 from pathlib import Path
@@ -136,7 +137,12 @@ def _training_dependencies():
             TrainingArguments,
         )
     except ImportError as exc:
-        raise SystemExit("缺少训练依赖。请执行：uv sync --extra sft") from exc
+        # 提示写 stderr，然后原样抛出 ImportError。
+        # 不要换成 SystemExit：SystemExit 只打印自己的消息，__cause__ 不会出现在
+        # 输出里，于是「缺哪个依赖」这个唯一有用的信息被吞掉。
+        print("缺少训练依赖。请执行：uv sync --extra sft", file=sys.stderr)
+        print(f"原始导入错误: {type(exc).__name__}: {exc}", file=sys.stderr)
+        raise
     return (
         torch,
         LoraConfig,
@@ -237,7 +243,10 @@ def _swanlab_config(args):
     try:
         import swanlab  # noqa: F401 - 仅验证可选依赖存在。
     except ImportError as exc:
-        raise SystemExit("缺少 SwanLab。请执行：uv sync --extra sft") from exc
+        # 同 _training_dependencies：保留 traceback，不要用 SystemExit 吞掉 __cause__。
+        print("缺少 SwanLab。请执行：uv sync --extra sft", file=sys.stderr)
+        print(f"原始导入错误: {type(exc).__name__}: {exc}", file=sys.stderr)
+        raise
 
     run_name = args.swanlab_run_name or (
         f"lora-r{args.lora_r}-bs{args.per_device_train_batch_size}"
